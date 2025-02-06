@@ -23,6 +23,10 @@ class _TodoPageState extends State<TodoPage> {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  // Search and filter state variables
+  String searchQuery = "";  // Stores the search input
+  String filterStatus = "All";  // "All", "Completed", or "Uncompleted"
+
   @override
   void initState() {
     super.initState();
@@ -141,6 +145,22 @@ class _TodoPageState extends State<TodoPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Filter tasks based on search query and filter status
+    final filteredTasks = db.toDoList.where((task) {
+      final taskName = task[0].toString().toLowerCase();
+      final isCompleted = task[1] as bool;
+
+      // Apply search filter
+      final matchesSearch = searchQuery.isEmpty || taskName.contains(searchQuery);
+
+      // Apply completion status filter
+      final matchesStatus = filterStatus == "All" ||
+          (filterStatus == "Completed" && isCompleted) ||
+          (filterStatus == "Uncompleted" && !isCompleted);
+
+      return matchesSearch && matchesStatus;
+    }).toList();
+
     return Scaffold(
       backgroundColor: Colors.deepPurple[100],
       appBar: AppBar(
@@ -150,8 +170,46 @@ class _TodoPageState extends State<TodoPage> {
             color: Colors.white,
             fontSize: 27,
             fontWeight: FontWeight.bold,
-
             fontFamily: "Montserrat",
+          ),
+        ),
+        actions: [
+          // Filter Icon with Popup Menu
+          PopupMenuButton<String>(
+            icon: Icon(Icons.filter_list, color: Colors.white),
+            onSelected: (value) {
+              setState(() {
+                filterStatus = value;
+              });
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'All', child: Text('All Tasks')),
+              PopupMenuItem(value: 'Completed', child: Text('Completed')),
+              PopupMenuItem(value: 'Uncompleted', child: Text('Uncompleted')),
+            ],
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value.toLowerCase();  // Update the search query
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search tasks...',
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -165,14 +223,14 @@ class _TodoPageState extends State<TodoPage> {
         ),
       ),
       body: ListView.builder(
-        itemCount: db.toDoList.length,
+        itemCount: filteredTasks.length,
         itemBuilder: (context, index) {
           return TodoTile(
-            taskName: db.toDoList[index][0],
-            taskCompleted: db.toDoList[index][1],
-            dueDate: db.toDoList[index][2],  // Pass due date to TodoTile
-            onChanged: (value) => checkBoxChanged(value, index),
-            deleteFunction: (context) => deleteTask(index),
+            taskName: filteredTasks[index][0],
+            taskCompleted: filteredTasks[index][1],
+            dueDate: filteredTasks[index][2],  // Pass due date to TodoTile
+            onChanged: (value) => checkBoxChanged(value, db.toDoList.indexOf(filteredTasks[index])),
+            deleteFunction: (context) => deleteTask(db.toDoList.indexOf(filteredTasks[index])),
           );
         },
       ),
