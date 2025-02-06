@@ -50,3 +50,11 @@ git clone git@github.com:your-username/to_do_flutter_app.git
 cd to_do_flutter_app
 flutter pub get
 flutter run
+
+To Do List (lol the irony):
+
+Use flutter_launcher_icons to create a custom app icon.
+Add a splash screen using the flutter_native_splash package.
+Integrate local notifications to remind users of upcoming tasks.
+Let users organize tasks by categories like Work, Personal, Shopping, etc.
+Add a search bar to quickly find tasks or filter by completed/uncompleted.
