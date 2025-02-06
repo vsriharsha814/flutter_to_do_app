@@ -5,20 +5,39 @@ class TodoDatabase {
   // Reference the box
   final _myBox = Hive.box('myBox');
 
-  // run this method when this is the first time opening this app
+  // Initial data
   void createInitialData() {
     toDoList = [
-      ["Make Tutorial", false],
-      ["Do Exercise", false]
+      ["Make Tutorial", false, DateTime.now().add(Duration(days: 1))],  // With due date
+      ["Do Exercise", false, null],  // Without due date
     ];
   }
 
-  // load the data from the database
+  // Load data from Hive
   void loadData() {
-    toDoList = _myBox.get("TODOLIST");
+    final data = _myBox.get("TODOLIST");
+
+    if (data != null) {
+      toDoList = data.map((task) {
+        return [
+          task[0],  // Task Name
+          task[1],  // Is Completed
+          task[2] != null ? DateTime.tryParse(task[2]) : null,  // Parse date if it exists, else null
+        ];
+      }).toList();
+    }
   }
 
+  // Save data to Hive
   void updateDatabase() {
-    _myBox.put("TODOLIST", toDoList);
+    final dataToStore = toDoList.map((task) {
+      return [
+        task[0],  // Task Name
+        task[1],  // Is Completed
+        task[2]?.toIso8601String(),  // Convert date to string if exists, else null
+      ];
+    }).toList();
+
+    _myBox.put("TODOLIST", dataToStore);
   }
 }
