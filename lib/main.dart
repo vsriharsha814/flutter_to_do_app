@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:to_do_flutter_app/pages/todo_page.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() async {
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  await Future.delayed(const Duration(seconds: 1));  // Delay splash screen
+
   // Init Hive for storage
   await Hive.initFlutter();
 
@@ -10,6 +15,7 @@ void main() async {
   var box = await Hive.openBox('myBox');
 
   runApp(const MainApp());
+  FlutterNativeSplash.remove();
 }
 
 class MainApp extends StatelessWidget {

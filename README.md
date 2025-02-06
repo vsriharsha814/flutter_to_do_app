@@ -53,7 +53,6 @@ flutter run
 
 To Do List (lol the irony):
 
-Use flutter_launcher_icons to create a custom app icon.
 Add a splash screen using the flutter_native_splash package.
 Integrate local notifications to remind users of upcoming tasks.
 Let users organize tasks by categories like Work, Personal, Shopping, etc.
