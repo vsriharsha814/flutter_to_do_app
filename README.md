@@ -53,7 +53,6 @@ flutter run
 
 To Do List (lol the irony):
 
-Add a splash screen using the flutter_native_splash package.
 Integrate local notifications to remind users of upcoming tasks.
 Let users organize tasks by categories like Work, Personal, Shopping, etc.
 Add a search bar to quickly find tasks or filter by completed/uncompleted.
