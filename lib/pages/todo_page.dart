@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:to_do_flutter_app/data/database.dart';
+import 'package:to_do_flutter_app/pages/settings_page.dart';
 import 'package:to_do_flutter_app/util/alert_dialog_box.dart';
 import 'package:to_do_flutter_app/util/todo_tile.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -204,6 +205,15 @@ class _TodoPageState extends State<TodoPage> {
               _buildPopupMenuItem('Completed', 'Completed'),
               _buildPopupMenuItem('Uncompleted', 'Uncompleted'),
             ],
+          ),
+          IconButton(
+            icon: Icon(Icons.settings, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
           ),
         ],
       ),
