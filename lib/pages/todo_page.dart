@@ -7,6 +7,7 @@ import 'package:to_do_flutter_app/util/todo_tile.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:permission_handler/permission_handler.dart';
 
 class TodoPage extends StatefulWidget {
   const TodoPage({super.key});
@@ -16,18 +17,13 @@ class TodoPage extends StatefulWidget {
 }
 
 class _TodoPageState extends State<TodoPage> {
-  // Hive database reference
   final _myBox = Hive.box('myBox');
   TodoDatabase db = TodoDatabase();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  // Local Notifications Plugin
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  // Search and filter state variables
   String searchQuery = "";
   String filterStatus = "All";
-  bool isSearchActive = false;  // Controls whether the search bar is visible
+  bool isSearchActive = false;
 
   @override
   void initState() {
@@ -39,13 +35,84 @@ class _TodoPageState extends State<TodoPage> {
       db.loadData();
     }
 
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Denver'));
+
+    _initializeNotifications();
+    _requestAllPermissions();  // Request both notification and alarm permissions on startup
+  }
+
+  Future<void> _initializeNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
+
     final InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-    tz.initializeTimeZones();
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    _createNotificationChannel();
+  }
+
+  void _createNotificationChannel() async {
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'task_channel',
+      'Task Notifications',
+      description: 'Channel for task reminders',
+      importance: Importance.max,
+    );
+
+    final AndroidFlutterLocalNotificationsPlugin? androidPlatform =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    await androidPlatform?.createNotificationChannel(channel);
+  }
+
+  Future<void> _requestAllPermissions() async {
+    // Request notification permission
+    await _requestNotificationPermissions();
+    
+    // Request exact alarm permission
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      await _showAlarmPermissionDialog();
+    }
+  }
+
+  Future<void> _requestNotificationPermissions() async {
+    final permissionStatus = await Permission.notification.status;
+
+    if (permissionStatus.isDenied) {
+      final requestStatus = await Permission.notification.request();
+      if (!requestStatus.isGranted) {
+        _showPermissionDeniedDialog();
+      }
+    } else if (permissionStatus.isPermanentlyDenied) {
+      _showPermissionSettingsDialog();
+    }
+  }
+
+  Future<void> _showAlarmPermissionDialog() async {
+    bool userConsent = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Allow Alarms & Reminders'),
+        content: const Text('To schedule exact reminders, we need permission to set alarms.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Deny'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    );
+
+    if (userConsent) {
+      await openAppSettings();  // Redirect to system settings to enable alarm permissions
+    }
   }
 
   final _controller = TextEditingController();
@@ -58,7 +125,7 @@ class _TodoPageState extends State<TodoPage> {
     db.updateDatabase();
   }
 
-  void saveNewTask() {
+  Future<void> saveNewTask() async {
     if (_controller.text.isNotEmpty) {
       setState(() {
         db.toDoList.add([_controller.text, false, selectedDueDate]);
@@ -111,8 +178,12 @@ class _TodoPageState extends State<TodoPage> {
   }
 
   Future<void> scheduleNotification(String taskName, DateTime dueDate) async {
+    if (dueDate.isBefore(DateTime.now())) return;
+
+    final int notificationId = dueDate.millisecondsSinceEpoch ~/ 1000;
+
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      dueDate.millisecondsSinceEpoch ~/ 1000,
+      notificationId,
       'Task Reminder',
       taskName,
       tz.TZDateTime.from(dueDate, tz.local),
@@ -123,6 +194,7 @@ class _TodoPageState extends State<TodoPage> {
           importance: Importance.max,
           priority: Priority.high,
         ),
+        iOS: IOSNotificationDetails(),
       ),
       androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation:
@@ -133,6 +205,48 @@ class _TodoPageState extends State<TodoPage> {
 
   Future<void> cancelNotification(DateTime dueDate) async {
     await flutterLocalNotificationsPlugin.cancel(dueDate.millisecondsSinceEpoch ~/ 1000);
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permission Required'),
+        content: const Text('Notification permission is required to show reminders.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => openAppSettings(),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermissionSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Notifications'),
+        content: const Text(
+          'Notifications are disabled for this app. Please enable them in the system settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => openAppSettings(),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -165,7 +279,7 @@ class _TodoPageState extends State<TodoPage> {
                   hintStyle: TextStyle(color: Colors.white70),
                   border: InputBorder.none,
                 ),
-                style: TextStyle(color: Colors.white, fontSize: 18),
+                style: const TextStyle(color: Colors.white, fontSize: 18),
               )
             : const Text(
                 'SwiftList',
@@ -177,7 +291,6 @@ class _TodoPageState extends State<TodoPage> {
                 ),
               ),
         actions: [
-          // Search Icon
           IconButton(
             icon: Icon(
               isSearchActive ? Icons.close : Icons.search,
@@ -187,14 +300,13 @@ class _TodoPageState extends State<TodoPage> {
               setState(() {
                 isSearchActive = !isSearchActive;
                 if (!isSearchActive) {
-                  searchQuery = "";  // Clear search when closing
+                  searchQuery = "";
                 }
               });
             },
           ),
-          // Filter Icon with Highlighted Option
           PopupMenuButton<String>(
-            icon: Icon(Icons.filter_list, color: Colors.white),
+            icon: const Icon(Icons.filter_list, color: Colors.white),
             onSelected: (value) {
               setState(() {
                 filterStatus = value;
@@ -207,7 +319,7 @@ class _TodoPageState extends State<TodoPage> {
             ],
           ),
           IconButton(
-            icon: Icon(Icons.settings, color: Colors.white),
+            icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () {
               Navigator.push(
                 context,
@@ -221,10 +333,7 @@ class _TodoPageState extends State<TodoPage> {
         onPressed: createNewTask,
         backgroundColor: const Color.fromARGB(255, 115, 74, 186),
         foregroundColor: Colors.white,
-        child: const Icon(
-          Icons.add,
-          size: 30,
-        ),
+        child: const Icon(Icons.add, size: 30),
       ),
       body: ListView.builder(
         itemCount: filteredTasks.length,
@@ -233,17 +342,14 @@ class _TodoPageState extends State<TodoPage> {
             taskName: filteredTasks[index][0],
             taskCompleted: filteredTasks[index][1],
             dueDate: filteredTasks[index][2],
-            onChanged: (value) =>
-                checkBoxChanged(value, db.toDoList.indexOf(filteredTasks[index])),
-            deleteFunction: (context) =>
-                deleteTask(db.toDoList.indexOf(filteredTasks[index])),
+            onChanged: (value) => checkBoxChanged(value, db.toDoList.indexOf(filteredTasks[index])),
+            deleteFunction: (context) => deleteTask(db.toDoList.indexOf(filteredTasks[index])),
           );
         },
       ),
     );
   }
 
-  // Custom Popup Menu Item with Highlight for Selected Filter
   PopupMenuItem<String> _buildPopupMenuItem(String value, String text) {
     final isSelected = filterStatus == value;
     return PopupMenuItem(
