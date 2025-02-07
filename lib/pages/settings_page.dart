@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:to_do_flutter_app/main.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -18,12 +20,86 @@ class SettingsPage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
+                MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()),
               );
             },
           ),
+          const SizedBox(height: 40), // Adds space before the hidden button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: ElevatedButton(
+              onPressed: () {
+                _showTestNotification(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Test Notification'),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  void _showTestNotification(BuildContext context) async {
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // Using IOSInitializationSettings for older versions
+    IOSInitializationSettings initializationSettingsIOS = IOSInitializationSettings(
+      onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
+        // Display an alert dialog if notification is received in foreground
+        showDialog(
+          context: navigatorKey.currentContext!,
+          builder: (BuildContext context) => AlertDialog(
+            title: Text(title ?? ''),
+            content: Text(body ?? ''),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'test_channel',
+      'Test Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const IOSNotificationDetails iosDetails = IOSNotificationDetails();
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Test Notification',
+      'This is a test notification!',
+      platformDetails,
     );
   }
 }
@@ -39,7 +115,7 @@ class PrivacyPolicyPage extends StatelessWidget {
         backgroundColor: Colors.deepPurple,
       ),
       body: const Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Text(
             '''Privacy Policy  

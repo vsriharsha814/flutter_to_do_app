@@ -3,6 +3,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:to_do_flutter_app/pages/todo_page.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
@@ -26,6 +28,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: const TodoPage(),
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
         appBarTheme: AppBarTheme(
