@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:to_do_flutter_app/main.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -28,8 +29,8 @@ class SettingsPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: ElevatedButton(
-              onPressed: () {
-                _showTestNotification(context);
+              onPressed: () async {
+                await _handleNotificationPermission(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
@@ -47,6 +48,70 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _handleNotificationPermission(BuildContext context) async {
+    PermissionStatus status = await Permission.notification.status;
+
+    if (status.isGranted) {
+      _showTestNotification(context);
+    } else if (status.isDenied) {
+      PermissionStatus requestStatus = await Permission.notification.request();
+      if (requestStatus.isGranted) {
+        _showTestNotification(context);
+      } else {
+        _showPermissionDeniedDialog(context);
+      }
+    } else if (status.isPermanentlyDenied) {
+      _showPermissionSettingsDialog(context);
+    }
+  }
+
+  void _showPermissionDeniedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permission Required'),
+        content: const Text('Notification permission is required to show reminders.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleNotificationPermission(context);
+            },
+            child: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPermissionSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Notifications'),
+        content: const Text(
+          'Notifications are disabled for this app. Please enable them in the system settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showTestNotification(BuildContext context) async {
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
@@ -54,10 +119,8 @@ class SettingsPage extends StatelessWidget {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Using IOSInitializationSettings for older versions
     IOSInitializationSettings initializationSettingsIOS = IOSInitializationSettings(
       onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
-        // Display an alert dialog if notification is received in foreground
         showDialog(
           context: navigatorKey.currentContext!,
           builder: (BuildContext context) => AlertDialog(
