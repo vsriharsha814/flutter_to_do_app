@@ -1,4 +1,4 @@
-package com.example.to_do_flutter_app
+package com.vsriharsha814.swiftlist
 
 import io.flutter.embedding.android.FlutterActivity
 
